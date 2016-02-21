@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Json Testing</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+        <!-- sha1 -->
+        <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/hmac-sha1.js"></script>
+        <!-- sha256 -->
+        <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/hmac-sha256.js"></script>
+        <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/components/enc-base64-min.js"></script>
+        <script src="oauth-1.0a.js"></script>
+        <script src="xml2json.js"></script>
+    </head>
+    <body>
+        <h1>Get:</h1>
+        <input type="button" value="Boundary +" onclick="getBoundaryData()">
+        <div id='content'></div><br>
+        <input type="button" value="Climate +" onclick="getClimateData()">
+        <div id='climate-content'></div><br>
+        <button className="login-with-climate" onClick="doLogin();">Login With Climate</button>
+    </body>
+    <script>
+        
+        var auth = OAuth({
+            consumer: {
+                public: 'johndeere-54ET8agkbEm5s5WT83Kfyx57',
+                secret: 'af433adb114ea5539aca09cc0c09f53cb52a2237'
+            },
+            signature_method: 'HMAC-SHA1'
+        });
+
+        var request_data = {
+            url: 'https://apicert.soa-proxy.deere.com/platform/boundaries',
+            method: 'GET',
+            data: {
+                status: '200'
+            }
+        };
+        
+        var token = {
+            public: '295a2b5b-9d74-4356-852c-459b4774bde3',
+            secret: 'CMptoEy3EgiRzJglagvjcCN/PDNx00Slah1EuYnuc3WHqa9HCMM5A6mNck7kQY4zBZroAmeis0VoJFZuLpJcf6oUFxH8mbPsWoCgKFky3gE='
+        };
+        
+        function getBoundaryData(){ 
+            $.ajax({ 
+                url: request_data.url,
+                type: request_data.method,
+                data: auth.authorize(request_data, token),
+            }).done(function(data){
+                getBoundaries(data);
+            }); 
+        }   
+                
+        function getBoundaries(data){
+            jsonString = xml2json(data, " ");
+            var obj = JSON.parse(jsonString);
+            var collection = obj['collection'];
+            var boundaries = collection['boundary'];
+            var boundaryObjs = [];
+            for (var i = 0; i < boundaries.length; i++){
+                var multipolygonObj = boundaries[i].multipolygon.rings.points;
+                
+                if (typeof multipolygonObj === 'undefined'){
+                    multipolygonObj = boundaries[i].multipolygon.rings;
+                }
+                
+                var boundary = {
+                    boundId: boundaries[i].id,
+                    crop: "corn",
+                    boundName: boundaries[i].name,
+                    area: boundaries[i].area.valueAsDouble,
+                    multipolygon: multipolygonObj
+                };
+                //console.log(boundary.multipolygon);
+                var div = document.createElement('div');
+                div.className = 'row';
+                div.innerHTML = '<h3> Name: '+ boundary.boundName +'</h3> <label> Id: '+ boundary.boundId + '</label><br>\
+                                <label> Crop: '+ boundary.crop +'</label><br> <label> Area: ' + boundary.area + '</label><br>';
+
+                
+                document.getElementById('content').appendChild(div);
+                boundaryObjs.push(boundary);
+            }
+            return boundaryObjs;
+        }
+        
+        function getClimateData(authCode){
+            $.ajax({
+                beforeSend : function(req) { 
+                    req.setRequestHeader('Authorization', authCode); 
+                }, 
+                url: 'https://hackillinois.climate.com/api/fields?includeBoundary=true',
+                xhrFields: {
+                    withCredentials: false
+                },
+                dataType: 'json',
+                success: function(response) {
+                    getClimateBoundaries(response);  // {"fields": [ {...}, {...}, ... ] }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        }
+        
+        function getClimateBoundaries(response){
+            var boundaryObjs = [];
+            for(var i = 0; i < response.fields.length; i++){
+                var area = response.fields[i].area.q;
+                var points = response.fields[i].boundary.coordinates;
+                var div = document.createElement('div');
+                div.className = 'climate-row';
+                div.innerHTML = '<h3> Area: '+ area +'</h3>'; 
+                document.getElementById('climate-content').appendChild(div);  
+            }
+        }
+        
+        function getUserInfo(){
+            $.ajax({
+                url: 'https://api.climate.com/api/authdemo/info/self-aware',
+                xhrFields: {
+                    withCredentials: false
+                },
+                dataType: 'json',
+                success:
+            });
+        }
+        
+        function doLogin(){
+            var redirectUrl = encodeURIComponent(window.location.href);
+            window.location.href = 'https://www.climate.com/static/app-login/?redirect_uri=' + redirectUrl;            
+        }
+        
+    </script>
+</html>
